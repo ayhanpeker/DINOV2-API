@@ -6,7 +6,6 @@ from torchvision import transforms
 import io
 import requests  # Import the requests library
 import logging
-from pydantic import BaseModel, ConfigDict
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -49,21 +48,15 @@ def infer(model, input_batch):
         output = model(input_batch)
     return output
 
-class InferenceRequest(BaseModel):
-    model_name: str = Form(...)
-
-    class Config:
-        protected_namespaces = ()
-
 @app.post("/infer/")
-async def infer_image(file: UploadFile = File(...), inference_request: InferenceRequest = Form(...)):
+async def infer_image(file: UploadFile = File(...), model_name: str = Form(...)):
     try:
-        if inference_request.model_name not in MODEL_MAP:
+        if model_name not in MODEL_MAP:
             raise HTTPException(status_code=400, detail="Invalid model name provided.")
 
         image_bytes = await file.read()
         input_batch = preprocess_image(image_bytes)
-        model = load_model(inference_request.model_name)
+        model = load_model(model_name)
         output = infer(model, input_batch)
 
         return JSONResponse(content={"inference_output": output.tolist()})
@@ -72,9 +65,9 @@ async def infer_image(file: UploadFile = File(...), inference_request: Inference
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/infer-url/")
-async def infer_image_url(url: str = Form(...), inference_request: InferenceRequest = Form(...)):
+async def infer_image_url(url: str = Form(...), model_name: str = Form(...)):
     try:
-        if inference_request.model_name not in MODEL_MAP:
+        if model_name not in MODEL_MAP:
             raise HTTPException(status_code=400, detail="Invalid model name provided.")
 
         response = requests.get(url)
@@ -90,17 +83,13 @@ async def infer_image_url(url: str = Form(...), inference_request: InferenceRequ
             logger.error(f"The provided URL does not contain a valid image: {url}")
             raise HTTPException(status_code=400, detail="The provided URL does not contain a valid image.")
 
-        model = load_model(inference_request.model_name)
+        model = load_model(model_name)
         output = infer(model, input_batch)
 
         return JSONResponse(content={"inference_output": output.tolist()})
     except Exception as e:
         logger.error(f"Error processing image from URL: {url}, Error: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
-
-@app.get("/")
-async def read_root():
-    return {"message": "Welcome to the DINOv2 inference API"}
 
 if __name__ == "__main__":
     import uvicorn
