@@ -6,6 +6,10 @@
 
 FROM nvidia/cuda:11.7.1-cudnn8-runtime-ubuntu20.04
 
+
+ENV DEBIAN_FRONTEND=noninteractive
+ 
+
 # Install Python 3.9 and necessary packages
 RUN apt-get update && apt-get install -y \
     python3.9 \
@@ -28,6 +32,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the application code into the container
 COPY . .
+
+# Set the environment variable to disable xformers
+ENV XFORMERS_DISABLED=1
 
 # Expose the port the app runs on
 EXPOSE 8000
